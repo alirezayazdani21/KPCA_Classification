@@ -1,0 +1,86 @@
+##################################################################
+##################################################################
+library(kernlab)
+library(ggplot2)
+library(tidyverse)
+library(MASS)
+library(caret)
+
+
+df <- na.omit(biopsy[,-1])
+
+base_glm <-train(class~.,
+                 data=df,
+                 trControl = trainControl(method = "cv", 
+                                          number = 10,
+                                          summaryFunction=twoClassSummary,
+                                          classProbs=T),
+                 method = "glm",metric = "ROC",
+                 family = "binomial")
+
+base_glm
+confusionMatrix(base_glm)
+
+########################################################
+########################################################
+#KPCA
+kpca_fit<-kpca(as.matrix(df[,-10]),
+               #kernel="polydot",kpar=list(degree=2),
+               #kernel="splinedot",#kpar=list(sigma=0.01),
+               kernl="rbfdot",kpar=list(sigma=0.01),
+               features = 2)
+
+
+kpca_df<-cbind.data.frame(kpca_fit@rotated,df$class)
+colnames(kpca_df)<-c("KPC1","KPC2","KPC3","class")
+
+ggplot(kpca_df,aes(x=KPC1,y=KPC2,color=class)) + geom_point() +
+  ggtitle("2-component kernel PCA of Biopsy dataset")
+
+ggplot(kpca_df,aes(class,KPC1))+geom_violin(col="black",fill="red")
+
+kpca_glm<-train(class~.,
+                data=kpca_df,
+                trControl = trainControl(method = "boot", 
+                                         number = 500,
+                                         summaryFunction=twoClassSummary,
+                                         classProbs=T),
+                method = "glm",metric = "ROC",
+                family = "binomial")
+
+kpca_glm
+confusionMatrix(kpca_glm)
+
+####################################################################
+####################################################################
+#PCA
+df <- na.omit(biopsy[,c(-1)])
+
+pca_fit<-princomp(df[,-10])
+
+pca_df<-cbind.data.frame(pca_fit$scores[,1:2],df$class)
+colnames(pca_df)<-c("PC1","PC2","class")
+
+ggplot(pca_df,aes(x= PC1,y= PC2,color= class)) + geom_point() +
+  ggtitle("2-component PCA of Biopsy dataset")
+
+ggplot(pca_df,aes(class,PC1))+geom_violin(fill="red")
+
+
+pca_glm<-train(class~.,
+               data=pca_df,
+               trControl = trainControl(method = "boot", 
+                                        number = 500,
+                                        summaryFunction=twoClassSummary,
+                                        classProbs=T),
+               method = "glm",metric="ROC",
+               family = "binomial")
+
+pca_glm
+confusionMatrix(pca_glm)
+
+########################################################
+########################################################
+
+
+
